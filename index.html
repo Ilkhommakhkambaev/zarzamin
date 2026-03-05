@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mind Map Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #f7f5f2;
+  --toolbar: #ffffff;
+  --border:  #ddd8d0;
+  --text:    #2a2520;
+  --muted:   #9a9088;
+  --accent:  #3b6ea5;
+  --green:   #27a85f;
+  --red:     #c0392b;
+  --shadow:  0 2px 10px rgba(0,0,0,0.09);
+  --shadow-lg: 0 6px 24px rgba(0,0,0,0.13);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--bg); color: var(--text);
+  height: 100vh; overflow: hidden; user-select: none;
+}
+
+/* ── TOOLBAR ─────────────────────────── */
+#toolbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 50px;
+  background: var(--toolbar); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 8px;
+  z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+#map-title {
+  font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px;
+  color: var(--text); padding: 3px 6px; border-radius: 5px;
+  border: 1.5px solid transparent; outline: none; cursor: text;
+  background: transparent; min-width: 80px; max-width: 200px;
+}
+#map-title:focus { border-color: var(--accent); background: #f0f4fa; }
+.sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+.btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border: 1.5px solid var(--border); border-radius: 7px;
+  background: #fff; color: var(--text);
+  font-family: 'Nunito Sans', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.13s; white-space: nowrap;
+}
+.btn:hover { background: #f0ece6; border-color: #bbb4ac; }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover { background: #2e5a8e; }
+.color-strip { display: flex; align-items: center; gap: 5px; }
+.swatch {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; transition: transform 0.12s;
+}
+.swatch:hover { transform: scale(1.35); }
+
+/* ── FORMAT PANEL ────────────────────── */
+/* Appears below toolbar when a node is selected */
+#fmt-panel {
+  position: fixed; top: 50px; left: 50%; transform: translateX(-50%);
+  background: #fff; border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  display: none; align-items: center; gap: 6px;
+  padding: 6px 14px; z-index: 999;
+  white-space: nowrap;
+}
+#fmt-panel.visible { display: flex; }
+/* Edge selected mode - hides node-only controls, shows edge label */
+#fmt-panel.edge-mode { background: #f5f8ff; border-color: #b8cce8; }
+#fmt-edge-label { font-size: 10px; font-weight: 700; color: var(--accent); background: #deeaf8; border-radius: 4px; padding: 2px 8px; display: none; white-space: nowrap; }
+#fmt-panel.edge-mode #fmt-edge-label { display: inline-block; }
+#fmt-panel.edge-mode .node-only { display: none !important; }
+
+/* Edge label text input in format panel */
+#fmt-edge-text {
+  font-size: 11px; padding: 3px 7px; border: 1.5px solid var(--border);
+  border-radius: 5px; outline: none; width: 110px; color: var(--text);
+  font-family: 'Nunito Sans', sans-serif;
+}
+#fmt-edge-text:focus { border-color: var(--accent); }
+
+/* Label text sits above the line at the midpoint - no box, just clean text */
+.edge-label-text {
+  font-family: 'Nunito Sans', sans-serif; font-size: 11px; font-weight: 600;
+  fill: #5a5248; pointer-events: none; dominant-baseline: auto;
+  text-anchor: middle;
+}
+#fmt-panel label { font-size: 10px; color: var(--muted); font-weight: 600; margin-right: 1px; }
+.fmt-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+/* font family dropdown */
+#fmt-font {
+  font-size: 11px; padding: 3px 5px; border: 1.5px solid var(--border);
+  border-radius: 5px; outline: none; cursor: pointer; background: #fff;
+  color: var(--text); max-width: 120px;
+}
+#fmt-font:focus { border-color: var(--accent); }
+
+/* font size input */
+#fmt-size {
+  width: 44px; font-size: 11px; padding: 3px 5px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 5px; outline: none;
+  color: var(--text);
+}
+#fmt-size:focus { border-color: var(--accent); }
+
+/* text color swatch picker */
+#fmt-color {
+  width: 26px; height: 26px; border: 1.5px solid var(--border);
+  border-radius: 5px; cursor: pointer; padding: 0;
+}
+
+/* bold / italic / underline toggle buttons */
+.fmt-btn {
+  width: 26px; height: 26px; border: 1.5px solid var(--border);
+  border-radius: 5px; background: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 700; display: flex; align-items: center;
+  justify-content: center; transition: all 0.12s; color: var(--text);
+}
+.fmt-btn:hover { background: #f0ece6; }
+.fmt-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* line thickness slider row */
+#fmt-thickness {
+  width: 70px; cursor: pointer; accent-color: var(--accent);
+}
+#fmt-thick-val {
+  font-size: 10px; color: var(--muted); min-width: 22px;
+}
+
+/* ── NODE SHAPES ─────────────────────── */
+.node.shape-square   { border-radius: 0 !important; }
+
+.node.shape-circle   {
+  border-radius: 50% !important;
+  /* Circle needs equal width/height - enforced via JS in applyShape */
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 14px !important;
+}
+
+.node.shape-diamond  {
+  transform: rotate(45deg);
+  border-radius: 6px !important;
+  padding: 12px !important;
+  display: flex; align-items: center; justify-content: center;
+}
+.node.shape-diamond .node-label,
+.node.shape-diamond .node-ta  { transform: rotate(-45deg); text-align: center; }
+.node.shape-diamond.selected  { box-shadow: 0 0 0 3px rgba(59,110,165,0.22); }
+
+/* shape picker in format panel */
+.shape-btn {
+  width: 28px; height: 28px; border: 1.5px solid var(--border);
+  border-radius: 4px; background: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s; padding: 3px; flex-shrink: 0;
+}
+.shape-btn:hover  { background: #f0ece6; border-color: #aaa; }
+.shape-btn.on     { border-color: var(--accent); background: #eef3fb; }
+.shape-btn svg    { width: 18px; height: 18px; }
+
+/* ── CANVAS ──────────────────────────── */
+#wrap {
+  position: fixed; top: 50px; left: 0; right: 0; bottom: 0; overflow: hidden;
+}
+#canvas {
+  position: absolute; top: 0; left: 0; width: 5000px; height: 4000px;
+  transform-origin: 0 0;
+  background-image: radial-gradient(circle, #ccc6be 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+#svg-layer {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; overflow: visible;
+}
+.edge {
+  stroke: #b8b0a6; stroke-width: 2; fill: none; stroke-linecap: round;
+  pointer-events: stroke; cursor: pointer;
+}
+.edge:hover { stroke: var(--red); stroke-width: 3; }
+
+/* ── NODE ────────────────────────────── */
+.node {
+  position: absolute;
+  min-width: 100px; max-width: 210px;
+  background: #fff; border: 2px solid #c8c0b8; border-radius: 8px;
+  /* normal padding - drive icon is inside on right, toggle is OUTSIDE */
+  padding: 10px 36px 10px 14px;
+  font-size: 13px; font-weight: 700; font-family: 'Nunito', sans-serif;
+  color: var(--text); cursor: grab;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.13s, border-color 0.13s;
+  word-break: break-word; line-height: 1.4; z-index: 10;
+  overflow: visible; /* allow toggle to stick outside */
+}
+.node:hover { box-shadow: var(--shadow-lg); }
+.node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59,110,165,0.18), var(--shadow-lg);
+  z-index: 20;
+}
+.node.dragging { cursor: grabbing; z-index: 30; }
+.node.collapsed { opacity: 0.85; }
+
+/* ── NOTE NODE (annotation style) ───── */
+/*
+  A visually lighter node type for annotations / sub-notes.
+  Smaller text, italic, dashed border, soft left accent stripe.
+  Created via right-click "Add Note".
+*/
+.node.is-note {
+  min-width: 80px; max-width: 180px;
+  background: #fdfcf8;
+  border: 1.5px dashed #c8bfb0;
+  border-left: 3px solid #b8a898;
+  border-radius: 6px;
+  padding: 7px 30px 7px 11px;
+  font-size: 11.5px; font-weight: 400;
+  font-style: italic;
+  color: #5a5248;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.06);
+}
+.node.is-note:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.10); }
+.node.is-note.selected {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,110,165,0.18);
+}
+.node.is-note .node-ta {
+  font-size: 11.5px; font-weight: 400; font-style: italic; color: #5a5248;
+}
+
+/* inline textarea when editing */
+.node-ta {
+  width: 100%; border: none; outline: none; background: transparent;
+  font-family: 'Nunito', sans-serif; font-size: 13px; font-weight: 700;
+  color: inherit; resize: none; min-height: 18px; line-height: 1.4; display: block;
+}
+
+/* ── DRIVE ICON ──────────────────────── */
+/* Sits inside the node on the right. Always visible when link is attached. */
+.drive-icon {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 50; border-radius: 4px; text-decoration: none;
+  transition: transform 0.13s, background 0.13s;
+}
+.drive-icon:hover { transform: translateY(-50%) scale(1.2); background: rgba(0,0,0,0.06); }
+.drive-icon svg { width: 18px; height: 18px; display: block; }
+
+/* ── COLLAPSE / EXPAND TOGGLE ────────── */
+/*
+  Circle sits on the BOTTOM CENTER of the node, half outside.
+  Shows "-" when expanded.
+  Shows the COUNT of direct children when collapsed (like "2").
+*/
+.toggle-btn {
+  position: absolute;
+  bottom: -13px;
+  left: 50%; transform: translateX(-50%);
+  width: 22px; height: 22px;
+  background: #fff; border: 2px solid #b0a8a0;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; line-height: 1;
+  color: var(--muted); cursor: pointer; z-index: 60;
+  transition: border-color 0.13s, color 0.13s, background 0.13s;
+  user-select: none; box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.toggle-btn:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: #f0f6ff;
+}
+/* When collapsed show count in accent color */
+.toggle-btn.is-collapsed {
+  border-color: var(--accent); color: var(--accent);
+  background: #f0f6ff;
+}
+
+/* ── RESIZE HANDLE ───────────────────── */
+/*
+  Small square in bottom-right corner of selected nodes.
+  Drag it to resize the node freely.
+*/
+.resize-handle {
+  position: absolute; bottom: -5px; right: -5px;
+  width: 12px; height: 12px;
+  background: var(--accent); border: 2px solid #fff;
+  border-radius: 3px; cursor: se-resize;
+  z-index: 60; display: none;
+}
+.node.selected .resize-handle { display: block; }
+
+.btn.orange { color: #e07b3a; border-color: #e07b3a; }
+.btn.orange:hover, .btn.orange.active { background: #e07b3a; color: #fff; }
+
+/* floating X delete on selected node */
+.n-x {
+  position: absolute; top: -9px; right: -9px;
+  width: 18px; height: 18px; background: var(--red); color: #fff;
+  border-radius: 50%; font-size: 11px; line-height: 18px;
+  text-align: center; cursor: pointer; display: none; z-index: 40; font-weight: 800;
+}
+.node.selected .n-x { display: block; }
+
+/* floating + add child on selected node */
+.n-plus {
+  position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%);
+  width: 20px; height: 20px; background: var(--accent); color: #fff;
+  border-radius: 50%; font-size: 15px; line-height: 20px;
+  text-align: center; cursor: pointer; display: none; z-index: 40;
+}
+.node.selected .n-plus { display: block; }
+
+/* ── RUBBER BAND SELECTION ───────────── */
+#sel-rect {
+  position: absolute;
+  border: 2px solid var(--accent);
+  background: rgba(59,110,165,0.07);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 500;
+  display: none;
+}
+.node.multi-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(59,110,165,0.22), var(--shadow);
+}
+
+#ctx {
+  position: fixed; background: #fff;
+  border: 1px solid var(--border); border-radius: 9px;
+  box-shadow: var(--shadow-lg); padding: 5px 0; z-index: 5000;
+  display: none; min-width: 180px;
+}
+.cx {
+  padding: 8px 16px; font-size: 12px; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 9px;
+}
+.cx:hover { background: #f4f1ed; }
+.cx.red { color: var(--red); }
+.cxline { height: 1px; background: var(--border); margin: 4px 0; }
+
+/* ── LINK MODAL ──────────────────────── */
+#modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.32); z-index: 6000;
+  align-items: center; justify-content: center;
+}
+#modal-bg.open { display: flex; }
+#modal {
+  background: #fff; border-radius: 12px; padding: 26px 28px;
+  width: 440px; max-width: 93vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+}
+#modal h3 {
+  font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+  margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+}
+#modal .sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+#modal-url {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 9px 12px; font-size: 12px; font-family: 'Nunito Sans', sans-serif;
+  outline: none; color: var(--text); margin-bottom: 16px;
+}
+#modal-url:focus { border-color: var(--accent); }
+.modal-row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+
+/* ── ZOOM BADGE ──────────────────────── */
+#zoom-badge {
+  position: fixed; bottom: 14px; right: 14px;
+  background: rgba(255,255,255,0.92); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 9px;
+  font-size: 11px; font-weight: 700; color: var(--muted); pointer-events: none;
+}
+
+/* ── EMPTY HINT ──────────────────────── */
+#empty-hint {
+  position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center; pointer-events: none;
+}
+#empty-hint .ico { font-size: 44px; margin-bottom: 10px; }
+#empty-hint p { font-size: 14px; color: var(--muted); line-height: 2.2; }
+#empty-hint strong { color: var(--text); }
+
+/* ── GITHUB MODAL ────────────────────── */
+#gh-modal-bg {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.38); z-index: 8000;
+  align-items: center; justify-content: center;
+}
+#gh-modal-bg.open { display: flex; }
+#gh-modal {
+  background: #fff; border-radius: 14px; padding: 28px 30px;
+  width: 460px; max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+  font-family: 'Nunito Sans', sans-serif;
+}
+#gh-modal h3 {
+  font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 800;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 9px;
+}
+#gh-modal .sub { font-size: 11.5px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+#gh-modal label { font-size: 11px; font-weight: 700; color: var(--muted); display: block; margin-bottom: 4px; }
+#gh-modal input[type=text], #gh-modal input[type=password] {
+  width: 100%; border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 8px 11px; font-size: 12px; font-family: 'Nunito Sans', sans-serif;
+  outline: none; color: var(--text); margin-bottom: 13px;
+}
+#gh-modal input:focus { border-color: var(--accent); }
+.gh-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+/* File list in Load modal */
+#gh-file-list { max-height: 240px; overflow-y: auto; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; }
+.gh-file-item {
+  padding: 10px 14px; cursor: pointer; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.gh-file-item:last-child { border-bottom: none; }
+.gh-file-item:hover { background: #f4f1ed; }
+.gh-file-item .gh-date { font-size: 10px; color: var(--muted); font-weight: 400; margin-left: auto; }
+#gh-status { font-size: 11px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+#toast {
+  position: fixed; bottom: 52px; left: 50%;
+  transform: translateX(-50%) translateY(14px);
+  background: #2a2520; color: #fff; padding: 7px 18px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; opacity: 0; transition: all 0.22s;
+  pointer-events: none; z-index: 7000;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ── TOOLBAR ──────────────────────────────────────────────── -->
+<div id="toolbar">
+  <input id="map-title" type="text" value="My Mind Map" title="Click to rename map"/>
+  <div class="sep"></div>
+  <button class="btn primary" onclick="addNode()">+ Add Node</button>
+  <button class="btn orange" id="btn-conn" onclick="cxConnToggle()">&#8594; Connect</button>
+  <div class="sep"></div>
+  <span style="font-size:11px;color:var(--muted);">Color:</span>
+  <div class="color-strip" id="swatches"></div>
+  <div class="sep"></div>
+  <div class="sep"></div>
+  <button class="btn" onclick="ghSave()" title="Save map to GitHub" style="gap:4px;">
+    <!-- GitHub icon -->
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Save to GitHub
+  </button>
+  <button class="btn" onclick="ghLoad()" title="Load map from GitHub" style="gap:4px;">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Load from GitHub
+  </button>
+  <button class="btn" onclick="ghSettings()" title="GitHub settings" style="padding:6px 8px;">⚙</button>
+</div>
+
+<!-- ── FORMAT PANEL (appears when a node is selected) ───────── -->
+<div id="fmt-panel">
+  <span id="fmt-edge-label">&#9135; Line selected</span>
+
+  <label class="node-only">Font</label>
+  <select id="fmt-font" class="node-only" onchange="applyFmt()">
+    <option value="Nunito">Nunito</option>
+    <option value="Nunito Sans">Nunito Sans</option>
+    <option value="Georgia,serif">Georgia</option>
+    <option value="'Courier New',monospace">Courier New</option>
+    <option value="Arial,sans-serif">Arial</option>
+    <option value="'Times New Roman',serif">Times New Roman</option>
+    <option value="Verdana,sans-serif">Verdana</option>
+  </select>
+
+  <div class="fmt-sep node-only"></div>
+  <label class="node-only">Size</label>
+  <input id="fmt-size" class="node-only" type="number" min="8" max="48" value="13" onchange="applyFmt()" oninput="applyFmt()"/>
+
+  <div class="fmt-sep node-only"></div>
+  <label class="node-only">Color</label>
+  <input id="fmt-color" class="node-only" type="color" value="#2a2520" oninput="applyFmt()" title="Text color"/>
+
+  <div class="fmt-sep node-only"></div>
+  <button class="fmt-btn node-only" id="fmt-bold"   onclick="toggleFmtBtn('fmt-bold')"   title="Bold"><b>B</b></button>
+  <button class="fmt-btn node-only" id="fmt-italic" onclick="toggleFmtBtn('fmt-italic')" title="Italic"><i>I</i></button>
+
+  <div class="fmt-sep node-only"></div>
+  <button class="fmt-btn node-only" id="fmt-align-left"   onclick="applyAlign('left')"   title="Align left">&#8676;</button>
+  <button class="fmt-btn node-only" id="fmt-align-center" onclick="applyAlign('center')" title="Align center">&#8596;</button>
+  <button class="fmt-btn node-only" id="fmt-align-right"  onclick="applyAlign('right')"  title="Align right">&#8677;</button>
+
+  <div class="fmt-sep"></div>
+  <label>Line</label>
+  <input id="fmt-thickness" type="range" min="1" max="8" step="0.5" value="2"
+         oninput="applyEdgeThickness(this.value)" title="Connection line thickness"/>
+  <span id="fmt-thick-val">2px</span>
+  <input id="fmt-edge-color" type="color" value="#b8b0a6"
+         oninput="applyEdgeColor(this.value)" title="Line color"
+         style="width:26px;height:26px;border:1.5px solid var(--border);border-radius:5px;cursor:pointer;padding:0;"/>
+
+  <div class="fmt-sep" id="edge-label-sep" style="display:none;"></div>
+  <label id="edge-label-lbl" style="display:none;">Label</label>
+  <input id="fmt-edge-text" type="text" placeholder="Type label…" style="display:none;"
+         oninput="applyEdgeLabel(this.value)" onkeydown="if(event.key==='Enter'||event.key==='Escape')this.blur()"/>
+
+  <div class="fmt-sep node-only"></div>
+  <label class="node-only">Shape</label>
+  <button class="shape-btn node-only on" id="shape-rounded" onclick="applyShape('rounded')" title="Rounded">
+    <svg viewBox="0 0 18 18"><rect x="1" y="4" width="16" height="10" rx="3" ry="3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+  </button>
+  <button class="shape-btn node-only" id="shape-square" onclick="applyShape('square')" title="Square">
+    <svg viewBox="0 0 18 18"><rect x="1" y="3" width="16" height="12" rx="0" ry="0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+  </button>
+  <button class="shape-btn node-only" id="shape-circle" onclick="applyShape('circle')" title="Circle">
+    <svg viewBox="0 0 18 18"><circle cx="9" cy="9" r="7.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+  </button>
+  <button class="shape-btn node-only" id="shape-diamond" onclick="applyShape('diamond')" title="Diamond">
+    <svg viewBox="0 0 18 18"><polygon points="9,1 17,9 9,17 1,9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+  </button>
+</div>
+
+<!-- ── GITHUB SETTINGS MODAL ─────────────────────────────── -->
+<div id="gh-modal-bg">
+  <div id="gh-modal">
+    <h3>
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub Settings
+    </h3>
+    <div class="sub" id="gh-modal-sub">Enter your details once. They are stored only in your browser.</div>
+
+    <div id="gh-settings-form">
+      <label>GitHub Username</label>
+      <input type="text" id="gh-username" placeholder="e.g. Ilkhommakhkambaev"/>
+      <label>Repository Name</label>
+      <input type="text" id="gh-repo" placeholder="e.g. mindmaps"/>
+      <label>Personal Access Token</label>
+      <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"/>
+      <div class="sub" style="margin-top:-8px;">Token is saved only in your browser's local storage. Never shared anywhere.</div>
+    </div>
+
+    <div id="gh-save-form" style="display:none;">
+      <label>Save map as (filename)</label>
+      <input type="text" id="gh-filename" placeholder="e.g. BCI_2025"/>
+      <div class="sub">File will be saved as <strong id="gh-filename-preview">BCI_2025.json</strong> in your GitHub repo.</div>
+    </div>
+
+    <div id="gh-load-form" style="display:none;">
+      <div class="sub" style="margin-bottom:6px;">Select a map to load:</div>
+      <div id="gh-file-list"><div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Loading...</div></div>
+    </div>
+
+    <div id="gh-status"></div>
+    <div class="gh-row">
+      <button class="btn" onclick="ghCloseModal()">Cancel</button>
+      <button class="btn primary" id="gh-confirm-btn" onclick="ghConfirm()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CANVAS ───────────────────────────────────────────────── -->
+<div id="wrap">
+  <div id="canvas">
+    <svg id="svg-layer"></svg>
+    <div id="sel-rect"></div>
+    <div id="empty-hint">
+      <div class="ico">&#128506;</div>
+      <p>
+        <strong>Double-click</strong> the canvas to create a node.<br>
+        Or press <strong>+ Add Node</strong> in the toolbar.<br>
+        <strong>Right-click</strong> any node for options.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ── CONTEXT MENU ─────────────────────────────────────────── -->
+<div id="ctx">
+  <div class="cx" onclick="cxEdit()">&#9999;&#65039; Edit text</div>
+  <div class="cx" onclick="cxChild()">+ Add child node</div>
+  <div class="cx" onclick="cxNote()" style="color:#5a5248;">&#128221; Add note</div>
+  <div class="cx" onclick="cxLink()">
+    <svg viewBox="0 0 24 24" width="14" height="14" style="flex-shrink:0">
+      <path d="M4.42 21l3.46-6h11.25L22.58 21z" fill="#34a853"/>
+      <path d="M1 21L7.85 9l3.46 6-3.46 6z" fill="#4285f4"/>
+      <path d="M12.69 3h-1.38L1 21h6.85L16.15 9z" fill="#fbbc04"/>
+    </svg>
+    Attach Drive link
+  </div>
+  <div class="cx" onclick="cxConn()">&#8594; Connect to...</div>
+  <div class="cxline"></div>
+  <div class="cx red" onclick="cxDel()">&#10005; Delete node</div>
+</div>
+
+<!-- ── LINK MODAL ───────────────────────────────────────────── -->
+<div id="modal-bg">
+  <div id="modal">
+    <h3>
+      <svg viewBox="0 0 24 24" width="18" height="18">
+        <path d="M4.42 21l3.46-6h11.25L22.58 21z" fill="#34a853"/>
+        <path d="M1 21L7.85 9l3.46 6-3.46 6z" fill="#4285f4"/>
+        <path d="M12.69 3h-1.38L1 21h6.85L16.15 9z" fill="#fbbc04"/>
+      </svg>
+      Attach Google Drive Link
+    </h3>
+    <div class="sub">
+      Paste any Google Drive folder or file URL below.<br>
+      The Drive icon will appear on the node - click it to open.
+    </div>
+    <input id="modal-url" type="url" placeholder="https://drive.google.com/drive/folders/..."/>
+    <div class="modal-row">
+      <button class="btn" style="color:var(--red);border-color:#e5b0aa;margin-right:auto;display:none;" id="btn-remove" onclick="removeLink()">Remove Link</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveLink()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="zoom-badge">100%</div>
+<div id="toast"></div>
+
+<!-- ── JAVASCRIPT ────────────────────────────────────────────── -->
+<script>
+
+// ── GOOGLE DRIVE ICON SVG (inline, colored triangle) ──
+const DRIVE_SVG = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.42 21l3.46-6h11.25L22.58 21z" fill="#34a853"/>
+  <path d="M1 21L7.85 9l3.46 6-3.46 6z" fill="#4285f4"/>
+  <path d="M12.69 3h-1.38L1 21h6.85L16.15 9z" fill="#fbbc04"/>
+</svg>`;
+
+// ── NODE COLORS ──
+const COLORS = [
+  { bg:'#ffffff', bd:'#c8c0b8', name:'White'  },
+  { bg:'#ddeeff', bd:'#3b6ea5', name:'Blue'   },
+  { bg:'#dff5e3', bd:'#27a85f', name:'Green'  },
+  { bg:'#fff8d4', bd:'#c8960a', name:'Yellow' },
+  { bg:'#fde8d0', bd:'#e07b3a', name:'Orange' },
+  { bg:'#fde0de', bd:'#c0392b', name:'Red'    },
+  { bg:'#ede0ff', bd:'#7b52ab', name:'Purple' },
+  { bg:'#2a2520', bd:'#2a2520', name:'Dark'   },
+];
+
+// ── STATE ──
+const S = {
+  nodes:   [],     // { id, x, y, w, h, text, ci, link, collapsed }
+  edges:   [],     // { id, from, to }
+  nid:     1,
+  sel:     null,          // primary selected node id
+  selSet:  new Set(),     // all multi-selected node ids
+  drag:    null,          // { id, ox, oy }
+  resize:  null,          // { id, startX, startY, startW, startH }
+  rubber:  null,          // { startX, startY } canvas coords of rubber band start
+  pan:     { on:false, sx:0, sy:0, px:0, py:0 },
+  zoom:    1,
+  tx:      80, ty: 80,
+  conn:    { on:false, src:null },
+  ctxId:   null,
+  modalId: null,
+  edgeThickness: 2,
+  edgeColor: '#b8b0a6',
+  selEdge: null,   // id of currently selected edge
+};
+
+const cvs     = document.getElementById('canvas');
+const svgEl   = document.getElementById('svg-layer');
+const emptyH  = document.getElementById('empty-hint');
+const ctxMenu = document.getElementById('ctx');
+const modalBg = document.getElementById('modal-bg');
+
+// ── INIT ──
+function init() {
+  // Build color swatches in toolbar
+  const strip = document.getElementById('swatches');
+  COLORS.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.title = c.name;
+    s.style.cssText = `background:${c.bg}; border-color:${c.bd};`;
+    s.onclick = () => recolor(i);
+    strip.appendChild(s);
+  });
+
+  applyXform();
+
+  // Try to restore auto-saved map from last session
+  try {
+    const raw = localStorage.getItem('mmdata');
+    if (raw) { restore(JSON.parse(raw)); showToast('Map restored from last session'); }
+  } catch(e) {}
+}
+
+// ────────────────────────────────────────────────────────
+//  ADDING NODES
+// ────────────────────────────────────────────────────────
+
+function addNode(x, y, text, ci, link, isNote) {
+  if (x == null) {
+    const w = document.getElementById('wrap');
+    x = (w.clientWidth  / 2 - S.tx) / S.zoom - 55;
+    y = (w.clientHeight / 2 - S.ty) / S.zoom - 20;
+  }
+  const id = 'n' + (S.nid++);
+  S.nodes.push({
+    id, x, y, w: 0, h: 0,
+    text: text || (isNote ? 'Note...' : 'New Node'),
+    ci: ci || 0, link: link || '', collapsed: false, isNote: !!isNote,
+    // Text formatting
+    fontSize: 13, fontFamily: 'Nunito', textColor: '',
+    bold: false, italic: false, textAlign: 'left',
+    // Shape
+    shape: 'rounded', // rounded | square | circle | diamond | hexagon | parallelogram
+  });
+  buildNode(id);
+  updateHint();
+  select(id);
+  if (!text) setTimeout(() => beginEdit(id), 60);
+  autoSave();
+  return id;
+}
+
+// ────────────────────────────────────────────────────────
+//  BUILD NODE DOM
+//  This rebuilds the full DOM element for a node.
+//  Called on: create, recolor, link change, collapse toggle.
+// ────────────────────────────────────────────────────────
+
+function buildNode(id) {
+  const old = document.getElementById(id);
+  if (old) old.remove();
+
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+
+  const c      = COLORS[n.ci || 0];
+  const isDark = n.ci === 7;
+
+  // Find out if this node has any children (outgoing edges)
+  const hasChildren = S.edges.some(e => e.from === id);
+
+  const el = document.createElement('div');
+  el.id = id;
+  el.className = 'node' +
+    (n.collapsed  ? ' collapsed'    : '') +
+    (n.link       ? ' has-link'     : '') +
+    (n.isNote     ? ' is-note'      : '') +
+    (n.shape && n.shape !== 'rounded' ? ` shape-${n.shape}` : '');
+
+  // Apply explicit size if user has resized this node
+  // When user has manually resized, fix width and drop max-width so text wraps freely
+  const wStyle = n.w ? `width:${n.w}px; max-width:${n.w}px; white-space:normal;` : '';
+  const hStyle = n.h ? `min-height:${n.h}px;` : '';
+  el.style.cssText = `left:${n.x}px; top:${n.y}px; background:${c.bg}; border-color:${c.bd}; color:${isDark ? '#fff' : 'var(--text)'}; ${wStyle}${hStyle}`;
+
+  // ── Text label ──
+  const lbl = document.createElement('div');
+  lbl.className = 'node-label';
+  lbl.textContent = n.text;
+  // Apply custom text formatting if set
+  const fs = n.fontSize  || (n.isNote ? 11.5 : 13);
+  const ff = n.fontFamily || (n.isNote ? 'Nunito Sans' : 'Nunito');
+  const tc = n.textColor || (isDark ? '#fff' : '');
+  lbl.style.cssText = `
+    font-size:${fs}px;
+    font-family:${ff};
+    text-align:${n.textAlign || 'left'};
+    ${tc ? `color:${tc};` : ''}
+    ${n.bold   ? 'font-weight:800;' : ''}
+    ${n.italic ? 'font-style:italic;' : ''}
+  `;
+  el.appendChild(lbl);
+
+  // ── X delete button (top-right corner, visible when selected) ──
+  const xBtn = document.createElement('div');
+  xBtn.className = 'n-x';
+  xBtn.textContent = '×';
+  xBtn.title = 'Delete this node';
+  xBtn.addEventListener('mousedown', e => { e.stopPropagation(); deleteNode(id); });
+  el.appendChild(xBtn);
+
+  // ── + add child button (bottom-center, visible when selected) ──
+  const plusBtn = document.createElement('div');
+  plusBtn.className = 'n-plus';
+  plusBtn.textContent = '+';
+  plusBtn.title = 'Add a connected child node';
+  plusBtn.addEventListener('mousedown', e => { e.stopPropagation(); addChildNode(id); });
+  el.appendChild(plusBtn);
+
+  // ── Resize handle (bottom-right corner, visible when selected) ──
+  // Drag this to make the node bigger or smaller
+  const rsz = document.createElement('div');
+  rsz.className = 'resize-handle';
+  rsz.title = 'Drag to resize';
+  rsz.addEventListener('mousedown', e => { e.stopPropagation(); beginResize(e, id); });
+  el.appendChild(rsz);
+
+  // ── Drive icon (right side, always visible when link exists) ──
+  if (n.link) {
+    const a = document.createElement('a');
+    a.className = 'drive-icon';
+    a.innerHTML = DRIVE_SVG;
+    a.href      = n.link;
+    a.target    = '_blank';
+    a.rel       = 'noopener noreferrer';
+    a.title     = 'Open in Google Drive';
+    a.addEventListener('mousedown', e => e.stopPropagation());
+    a.addEventListener('click',     e => e.stopPropagation());
+    el.appendChild(a);
+  }
+
+  // ── Collapse / Expand toggle (shown when node has children) ──
+  // Sits on BOTTOM CENTER outside the node border.
+  // Shows "-" when expanded, shows child COUNT when collapsed.
+  if (hasChildren) {
+    const directChildCount = S.edges.filter(e => e.from === id).length;
+    const tog = document.createElement('div');
+    tog.className = 'toggle-btn' + (n.collapsed ? ' is-collapsed' : '');
+    tog.textContent = n.collapsed ? String(directChildCount) : '-';
+    tog.title = n.collapsed ? `Expand ${directChildCount} child node(s)` : 'Collapse children';
+    tog.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      toggleCollapse(id);
+    });
+    el.appendChild(tog);
+  }
+
+  // ── Mouse events ──
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    if (S.conn.on) { handleConnClick(id); return; }
+
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl+click: toggle this node in/out of multi-selection
+      // Clear any single selection first
+      document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
+      S.sel = null;
+
+      if (S.selSet.has(id)) {
+        // Already in selection - remove it
+        S.selSet.delete(id);
+        el.classList.remove('multi-selected');
+      } else {
+        // Add to selection
+        S.selSet.add(id);
+        el.classList.add('multi-selected');
+      }
+      return; // don't start drag on ctrl+click
+    }
+
+    // Normal click - if node is already in multi-sel, start group drag without clearing selection
+    if (S.selSet.has(id) && S.selSet.size > 1) {
+      beginDrag(e, id);
+      return;
+    }
+
+    select(id);
+    beginDrag(e, id);
+  });
+
+  el.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    beginEdit(id);
+  });
+
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    showCtxMenu(e, id);
+  });
+
+  cvs.appendChild(el);
+}
+
+// ────────────────────────────────────────────────────────
+//  COLLAPSE / EXPAND
+//  Only hides/shows the DIRECT children of this node.
+//  Each child's own collapse state is independent.
+//  Grandchildren stay controlled by their own toggle.
+// ────────────────────────────────────────────────────────
+
+function toggleCollapse(id) {
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  n.collapsed = !n.collapsed;
+
+  // Get only the DIRECT children (one hop away from this node)
+  const directChildren = S.edges
+    .filter(e => e.from === id)
+    .map(e => e.to);
+
+  directChildren.forEach(childId => {
+    const childEl = document.getElementById(childId);
+    if (!childEl) return;
+
+    if (n.collapsed) {
+      // Hide this child and ALL of its descendants (regardless of their own collapse state)
+      childEl.style.display = 'none';
+      getDescendants(childId).forEach(descId => {
+        const el = document.getElementById(descId);
+        if (el) el.style.display = 'none';
+      });
+    } else {
+      // Show this direct child
+      childEl.style.display = '';
+      // Show descendants only if THEIR parent is not collapsed
+      restoreVisibility(childId);
+    }
+  });
+
+  // Rebuild this node so the +/- updates
+  buildNode(id);
+  select(id);
+  drawEdges();
+  autoSave();
+}
+
+// Restores visibility of a subtree, respecting each node's own collapsed state
+function restoreVisibility(id) {
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  const children = S.edges.filter(e => e.from === id).map(e => e.to);
+  children.forEach(childId => {
+    const el = document.getElementById(childId);
+    if (!el) return;
+    if (n.collapsed) {
+      el.style.display = 'none';
+    } else {
+      el.style.display = '';
+      restoreVisibility(childId);
+    }
+  });
+}
+
+// Returns array of ALL descendant node ids (full subtree)
+function getDescendants(id) {
+  const result = [];
+  const queue  = [id];
+  const visited = new Set();
+  while (queue.length) {
+    const current = queue.shift();
+    if (visited.has(current)) continue;
+    visited.add(current);
+    S.edges.filter(e => e.from === current).forEach(e => {
+      if (!visited.has(e.to)) { result.push(e.to); queue.push(e.to); }
+    });
+  }
+  return result;
+}
+
+// ────────────────────────────────────────────────────────
+//  SELECT NODE (single)
+// ────────────────────────────────────────────────────────
+
+function select(id) {
+  clearMultiSel();
+  // Deselect any selected edge
+  if (S.selEdge) {
+    S.selEdge = null;
+    document.getElementById('fmt-panel').classList.remove('edge-mode');
+    // Hide the label input
+    document.getElementById('edge-label-sep').style.display = 'none';
+    document.getElementById('edge-label-lbl').style.display = 'none';
+    document.getElementById('fmt-edge-text').style.display  = 'none';
+    drawEdges();
+  }
+  document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
+  S.sel = id;
+  if (id) {
+    document.getElementById(id)?.classList.add('selected');
+    populateFmtPanel(id);
+    document.getElementById('fmt-panel').classList.add('visible');
+  } else {
+    document.getElementById('fmt-panel').classList.remove('visible');
+  }
+}
+
+// Fill the format panel controls from the selected node's current values
+function populateFmtPanel(id) {
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  document.getElementById('fmt-font').value      = n.fontFamily || 'Nunito';
+  document.getElementById('fmt-size').value      = n.fontSize   || 13;
+  document.getElementById('fmt-color').value     = n.textColor  || '#2a2520';
+  document.getElementById('fmt-bold').classList.toggle('on',   !!n.bold);
+  document.getElementById('fmt-italic').classList.toggle('on', !!n.italic);
+  // Sync alignment buttons
+  ['left','center','right'].forEach(a => {
+    document.getElementById('fmt-align-' + a).classList.toggle('on', (n.textAlign || 'left') === a);
+  });
+  // Sync thickness + color sliders to current global values
+  document.getElementById('fmt-thickness').value   = S.edgeThickness || 2;
+  document.getElementById('fmt-thick-val').textContent = (S.edgeThickness || 2) + 'px';
+  document.getElementById('fmt-edge-color').value  = S.edgeColor || '#b8b0a6';
+  // Sync shape buttons
+  const shapes = ['rounded','square','circle','diamond','hexagon','parallelogram'];
+  shapes.forEach(s => {
+    const btn = document.getElementById('shape-' + s);
+    if (btn) btn.classList.toggle('on', (n.shape || 'rounded') === s);
+  });
+}
+
+function clearMultiSel() {
+  S.selSet.forEach(id => document.getElementById(id)?.classList.remove('multi-selected'));
+  S.selSet.clear();
+}
+
+// ────────────────────────────────────────────────────────
+//  FORMAT PANEL - text formatting for selected node
+// ────────────────────────────────────────────────────────
+
+function applyFmt() {
+  const id = S.sel;
+  if (!id) return;
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+
+  n.fontFamily = document.getElementById('fmt-font').value;
+  n.fontSize   = parseFloat(document.getElementById('fmt-size').value) || 13;
+  n.textColor  = document.getElementById('fmt-color').value;
+  n.bold       = document.getElementById('fmt-bold').classList.contains('on');
+  n.italic     = document.getElementById('fmt-italic').classList.contains('on');
+
+  // Apply live to label without full rebuild (no flicker)
+  const lbl = document.querySelector(`#${id} .node-label`);
+  if (lbl) {
+    lbl.style.fontSize   = n.fontSize + 'px';
+    lbl.style.fontFamily = n.fontFamily;
+    lbl.style.color      = n.textColor || '';
+    lbl.style.fontWeight = n.bold   ? '800' : '';
+    lbl.style.fontStyle  = n.italic ? 'italic' : '';
+  }
+  autoSave();
+}
+
+function toggleFmtBtn(btnId) {
+  document.getElementById(btnId).classList.toggle('on');
+  applyFmt();
+}
+
+function applyAlign(align) {
+  const id = S.sel;
+  if (!id) return;
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  n.textAlign = align;
+  // Update button states
+  ['left','center','right'].forEach(a => {
+    document.getElementById('fmt-align-' + a).classList.toggle('on', a === align);
+  });
+  // Apply live to label without full rebuild
+  const lbl = document.querySelector(`#${id} .node-label`);
+  if (lbl) lbl.style.textAlign = align;
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  EDGE THICKNESS - global control for all connection lines
+// ────────────────────────────────────────────────────────
+
+function applyEdgeThickness(val) {
+  const v = parseFloat(val);
+  document.getElementById('fmt-thick-val').textContent = v.toFixed(1) + 'px';
+  if (S.selEdge) {
+    // Apply to this specific edge only
+    const edge = S.edges.find(e => e.id === S.selEdge);
+    if (edge) { edge.thickness = v; drawEdges(); autoSave(); return; }
+  }
+  // No edge selected - apply as global default
+  S.edgeThickness = v;
+  drawEdges();
+  autoSave();
+}
+
+function applyEdgeColor(val) {
+  if (S.selEdge) {
+    // Apply to this specific edge only
+    const edge = S.edges.find(e => e.id === S.selEdge);
+    if (edge) { edge.color = val; drawEdges(); autoSave(); return; }
+  }
+  // No edge selected - apply as global default
+  S.edgeColor = val;
+  drawEdges();
+  autoSave();
+}
+
+// Save label text to the selected edge and redraw
+function applyEdgeLabel(val) {
+  if (!S.selEdge) return;
+  const edge = S.edges.find(e => e.id === S.selEdge);
+  if (!edge) return;
+  edge.label = val;
+  drawEdges();
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  SELECT EDGE - click a line to select it for color/thickness editing
+// ────────────────────────────────────────────────────────
+
+function selectEdge(edgeId) {
+  // Deselect any node
+  document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
+  clearMultiSel();
+  S.sel = null;
+
+  S.selEdge = edgeId;
+  const edge = S.edges.find(e => e.id === edgeId);
+  if (!edge) return;
+
+  // Show format panel in edge mode (hides node controls)
+  const panel = document.getElementById('fmt-panel');
+  panel.classList.add('visible', 'edge-mode');
+
+  // Populate color + thickness
+  const c = edge.color     || S.edgeColor     || '#b8b0a6';
+  const t = edge.thickness || S.edgeThickness || 2;
+  document.getElementById('fmt-edge-color').value = c;
+  document.getElementById('fmt-thickness').value  = t;
+  document.getElementById('fmt-thick-val').textContent = parseFloat(t).toFixed(1) + 'px';
+
+  // Show and populate the label input
+  document.getElementById('edge-label-sep').style.display = '';
+  document.getElementById('edge-label-lbl').style.display = '';
+  const labelInput = document.getElementById('fmt-edge-text');
+  labelInput.style.display = '';
+  labelInput.value = edge.label || '';
+
+  drawEdges(); // redraw to show glow on selected edge
+}
+
+// ────────────────────────────────────────────────────────
+//  NODE SHAPE
+// ────────────────────────────────────────────────────────
+
+function applyShape(shape) {
+  const id = S.sel;
+  if (!id) return;
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  n.shape = shape;
+
+  // Circle needs equal width and height to look round.
+  // Measure the current node size and set w = h = max(w,h)
+  if (shape === 'circle') {
+    const el = document.getElementById(id);
+    if (el) {
+      const size = Math.max(el.offsetWidth, el.offsetHeight, 80);
+      n.w = size; n.h = size;
+    }
+  } else if (shape === 'rounded' || shape === 'square' || shape === 'parallelogram') {
+    // Reset manual size so node shrinks back to content
+    n.w = 0; n.h = 0;
+  }
+
+  buildNode(id);
+  select(id);
+  drawEdges();
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  EDIT NODE TEXT (inline textarea on double-click)
+// ────────────────────────────────────────────────────────
+
+function beginEdit(id) {
+  const n  = S.nodes.find(n => n.id === id);
+  const el = document.getElementById(id);
+  if (!n || !el) return;
+  const lbl = el.querySelector('.node-label');
+  if (!lbl) return;
+
+  const ta = document.createElement('textarea');
+  ta.className = 'node-ta';
+  ta.value     = n.text;
+
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  ta.addEventListener('input', grow);
+
+  const done = () => {
+    n.text = ta.value.trim() || 'Node';
+    lbl.textContent = n.text;
+    ta.replaceWith(lbl);
+    autoSave();
+  };
+
+  ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ta.blur(); }
+    if (e.key === 'Escape') { ta.value = n.text; ta.blur(); }
+    e.stopPropagation(); // prevent Delete key from deleting the node while typing
+  });
+  ta.addEventListener('blur', done);
+
+  lbl.replaceWith(ta);
+  ta.focus(); ta.select(); grow();
+}
+
+// ────────────────────────────────────────────────────────
+//  RESIZE NODE (drag the bottom-right handle)
+// ────────────────────────────────────────────────────────
+
+function beginResize(e, id) {
+  const n  = S.nodes.find(n => n.id === id);
+  const el = document.getElementById(id);
+  if (!n || !el) return;
+  S.resize = {
+    id,
+    startX: e.clientX,
+    startY: e.clientY,
+    startW: el.offsetWidth,
+    startH: el.offsetHeight,
+  };
+}
+
+// ────────────────────────────────────────────────────────
+//  DRAG NODES
+// ────────────────────────────────────────────────────────
+
+function beginDrag(e, id) {
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  document.getElementById(id)?.classList.add('dragging');
+
+  // If this node is in the multi-selection, drag all selected nodes together
+  // Otherwise single-drag just this node
+  const dragIds = (S.selSet.has(id) && S.selSet.size > 1)
+    ? [...S.selSet]
+    : [id];
+
+  S.drag = {
+    id,
+    startMouseX: e.clientX,
+    startMouseY: e.clientY,
+    // Snapshot starting position of every node in the drag group
+    group: dragIds.map(nid => {
+      const nd = S.nodes.find(n => n.id === nid);
+      return { id: nid, sx: nd.x, sy: nd.y };
+    }),
+  };
+}
+
+const selRectEl = document.getElementById('sel-rect');
+
+window.addEventListener('mousemove', e => {
+  // ── Resize ──
+  if (S.resize) {
+    const n  = S.nodes.find(n => n.id === S.resize.id);
+    const el = document.getElementById(S.resize.id);
+    if (!n || !el) return;
+    const dx = (e.clientX - S.resize.startX) / S.zoom;
+    const dy = (e.clientY - S.resize.startY) / S.zoom;
+    n.w = Math.max(90,  S.resize.startW + dx);
+    n.h = Math.max(36,  S.resize.startH + dy);
+    el.style.width     = n.w + 'px';
+    el.style.maxWidth  = n.w + 'px';
+    el.style.minHeight = n.h + 'px';
+    drawEdges();
+    return;
+  }
+
+  // ── Drag nodes (single or group) ──
+  if (S.drag) {
+    const dx = (e.clientX - S.drag.startMouseX) / S.zoom;
+    const dy = (e.clientY - S.drag.startMouseY) / S.zoom;
+    S.drag.group.forEach(({ id, sx, sy }) => {
+      const n  = S.nodes.find(n => n.id === id);
+      const el = document.getElementById(id);
+      if (!n || !el) return;
+      n.x = sx + dx;
+      n.y = sy + dy;
+      el.style.left = n.x + 'px';
+      el.style.top  = n.y + 'px';
+    });
+    drawEdges();
+    return;
+  }
+
+  // ── Rubber band selection ──
+  if (S.rubber) {
+    const r   = cvs.getBoundingClientRect();
+    // Current mouse in canvas coords
+    const mx  = (e.clientX - r.left) / S.zoom;
+    const my  = (e.clientY - r.top)  / S.zoom;
+    const x   = Math.min(S.rubber.sx, mx);
+    const y   = Math.min(S.rubber.sy, my);
+    const w   = Math.abs(mx - S.rubber.sx);
+    const h   = Math.abs(my - S.rubber.sy);
+    selRectEl.style.cssText = `display:block; left:${x}px; top:${y}px; width:${w}px; height:${h}px;`;
+    // Highlight nodes that fall inside the rectangle
+    clearMultiSel();
+    S.nodes.forEach(n => {
+      const el = document.getElementById(n.id);
+      if (!el || el.style.display === 'none') return;
+      const nx = n.x, ny = n.y, nw = el.offsetWidth, nh = el.offsetHeight;
+      if (nx < x + w && nx + nw > x && ny < y + h && ny + nh > y) {
+        S.selSet.add(n.id);
+        el.classList.add('multi-selected');
+      }
+    });
+    return;
+  }
+
+  // ── Pan ──
+  if (S.pan.on) {
+    S.tx = S.pan.px + (e.clientX - S.pan.sx);
+    S.ty = S.pan.py + (e.clientY - S.pan.sy);
+    applyXform();
+  }
+});
+
+window.addEventListener('mouseup', e => {
+  if (S.resize) { S.resize = null; autoSave(); }
+  if (S.drag) {
+    document.getElementById(S.drag.id)?.classList.remove('dragging');
+    S.drag = null; autoSave();
+  }
+  if (S.rubber) {
+    S.rubber = null;
+    selRectEl.style.display = 'none';
+    if (S.selSet.size === 1) {
+      // Only one node caught - treat as normal single select
+      const id = [...S.selSet][0];
+      clearMultiSel();
+      select(id);
+    }
+    // If 0 nodes caught - nothing to do, already cleared
+  }
+  if (S.pan.on) {
+    S.pan.on = false;
+    document.getElementById('wrap').style.cursor = '';
+  }
+});
+
+// ────────────────────────────────────────────────────────
+//  PAN CANVAS (Space + drag, or middle mouse button)
+// ────────────────────────────────────────────────────────
+
+let spaceHeld = false;
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+    e.preventDefault();
+    spaceHeld = true;
+    document.getElementById('wrap').style.cursor = 'grab';
+  }
+  // Ctrl+A = select all nodes
+  if (e.key === 'a' && (e.ctrlKey || e.metaKey) && !e.target.matches('input, textarea')) {
+    e.preventDefault();
+    clearMultiSel();
+    document.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
+    S.sel = null;
+    S.nodes.forEach(n => {
+      const el = document.getElementById(n.id);
+      if (el && el.style.display !== 'none') {
+        S.selSet.add(n.id);
+        el.classList.add('multi-selected');
+      }
+    });
+    showToast(`${S.selSet.size} nodes selected`);
+    return;
+  }
+  // Delete key removes selected node(s)
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !e.target.matches('input, textarea')) {
+    if (S.selSet.size > 1) {
+      // Delete all multi-selected nodes
+      const ids = [...S.selSet];
+      clearMultiSel();
+      ids.forEach(id => deleteNode(id));
+    } else if (S.sel) {
+      deleteNode(S.sel);
+    }
+  }
+});
+
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    spaceHeld = false;
+    S.pan.on  = false;
+    document.getElementById('wrap').style.cursor = '';
+  }
+});
+
+document.getElementById('wrap').addEventListener('mousedown', e => {
+  if (e.button === 0 && (e.target === cvs || e.target === svgEl || e.target.closest('#empty-hint') || e.target.id === 'sel-rect')) {
+    select(null);
+    hideCtxMenu();
+
+    if (!spaceHeld) {
+      // Start rubber band selection
+      const r  = cvs.getBoundingClientRect();
+      const sx = (e.clientX - r.left) / S.zoom;
+      const sy = (e.clientY - r.top)  / S.zoom;
+      S.rubber = { sx, sy };
+    }
+  }
+  if (e.button === 1 || (e.button === 0 && spaceHeld)) {
+    e.preventDefault();
+    S.rubber = null;
+    S.pan = { on:true, sx:e.clientX, sy:e.clientY, px:S.tx, py:S.ty };
+    document.getElementById('wrap').style.cursor = 'grabbing';
+  }
+});
+
+// Double-click empty canvas = create node at click position
+document.getElementById('wrap').addEventListener('dblclick', e => {
+  if (e.target === cvs || e.target === svgEl || e.target.closest('#empty-hint')) {
+    const r = cvs.getBoundingClientRect();
+    addNode((e.clientX - r.left) / S.zoom - 55, (e.clientY - r.top) / S.zoom - 20);
+  }
+});
+
+// ────────────────────────────────────────────────────────
+//  ZOOM (mouse scroll wheel)
+// ────────────────────────────────────────────────────────
+
+document.getElementById('wrap').addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.08 : 0.93;
+  const nz = Math.min(4, Math.max(0.1, S.zoom * factor));
+  const mx = e.clientX, my = e.clientY - 50;
+  S.tx   = mx - (mx - S.tx) * nz / S.zoom;
+  S.ty   = my - (my - S.ty) * nz / S.zoom;
+  S.zoom = nz;
+  applyXform();
+}, { passive: false });
+
+function applyXform() {
+  cvs.style.transform = `translate(${S.tx}px, ${S.ty}px) scale(${S.zoom})`;
+  document.getElementById('zoom-badge').textContent = Math.round(S.zoom * 100) + '%';
+}
+
+// ────────────────────────────────────────────────────────
+//  DRAW EDGES (connection lines between nodes)
+// ────────────────────────────────────────────────────────
+
+function drawEdges() {
+  svgEl.querySelectorAll('.edge, .edot, .edge-label-text').forEach(el => el.remove());
+
+  S.edges.forEach(edge => {
+    const a  = S.nodes.find(n => n.id === edge.from);
+    const b  = S.nodes.find(n => n.id === edge.to);
+    if (!a || !b) return;
+
+    const eA = document.getElementById(edge.from);
+    const eB = document.getElementById(edge.to);
+    if (!eA || !eB) return;
+
+    // Hide edge if either endpoint is hidden (collapsed subtree)
+    if (eA.style.display === 'none' || eB.style.display === 'none') return;
+
+    const x1 = a.x + eA.offsetWidth  / 2;
+    const y1 = a.y + eA.offsetHeight / 2;
+    const x2 = b.x + eB.offsetWidth  / 2;
+    const y2 = b.y + eB.offsetHeight / 2;
+    const mx = (x1 + x2) / 2;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'edge');
+    path.setAttribute('d', `M${x1} ${y1} C${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+
+    // Per-edge color/thickness falls back to global defaults
+    const bNode = S.nodes.find(n => n.id === edge.to);
+    const isNote = bNode?.isNote;
+    const isSelected = S.selEdge === edge.id;
+
+    if (isNote) {
+      path.style.stroke = edge.color || '#c8bfb0';
+      path.style.strokeDasharray = '5,4';
+      path.style.strokeWidth = (edge.thickness || 1.5) + 'px';
+    } else {
+      path.style.stroke      = edge.color     || S.edgeColor     || '#b8b0a6';
+      path.style.strokeWidth = (edge.thickness || S.edgeThickness || 2) + 'px';
+    }
+    if (isSelected) {
+      path.style.filter = 'drop-shadow(0 0 5px rgba(59,110,165,0.9))';
+    }
+
+    path.style.pointerEvents = 'stroke';
+
+    // Left-click = select this edge (show it in format panel)
+    path.addEventListener('click', e => {
+      e.stopPropagation();
+      selectEdge(edge.id);
+    });
+
+    // Double-click = select edge AND focus the label input immediately
+    path.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      selectEdge(edge.id);
+      setTimeout(() => {
+        const inp = document.getElementById('fmt-edge-text');
+        inp.focus();
+        inp.select();
+      }, 50);
+    });
+
+    // Right-click = delete this edge
+    path.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (confirm('Delete this connection?')) {
+        if (S.selEdge === edge.id) {
+          S.selEdge = null;
+          document.getElementById('fmt-panel').classList.remove('edge-mode', 'visible');
+          document.getElementById('edge-label-sep').style.display = 'none';
+          document.getElementById('edge-label-lbl').style.display = 'none';
+          document.getElementById('fmt-edge-text').style.display  = 'none';
+        }
+        S.edges = S.edges.filter(ed => ed.id !== edge.id);
+        buildNode(edge.from);
+        drawEdges();
+        autoSave();
+      }
+    });
+
+    svgEl.appendChild(path);
+
+    // ── Render label text ABOVE the midpoint of the curve ──
+    if (edge.label && edge.label.trim()) {
+      const lbl  = edge.label.trim();
+
+      // True midpoint of a cubic bezier: B(0.5) = (p0 + 3*p1 + 3*p2 + p3) / 8
+      // Our curve: M(x1,y1) C(mx,y1) (mx,y2) (x2,y2)
+      const midX = (x1 + 3*mx + 3*mx + x2) / 8;
+      const midY = (y1 + 3*y1  + 3*y2  + y2) / 8;
+
+      // Position text 14px ABOVE the line
+      const labelY = midY - 14;
+
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x',     midX);
+      txt.setAttribute('y',     labelY);
+      txt.setAttribute('class', 'edge-label-text');
+      txt.textContent = lbl;
+      if (isSelected) txt.style.fill = 'var(--accent)';
+
+      // Click / double-click on label selects the edge
+      txt.style.cursor = 'pointer';
+      txt.style.pointerEvents = 'all';
+      txt.addEventListener('click', e => { e.stopPropagation(); selectEdge(edge.id); });
+      txt.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        selectEdge(edge.id);
+        setTimeout(() => { const inp = document.getElementById('fmt-edge-text'); inp.focus(); inp.select(); }, 50);
+      });
+
+      svgEl.appendChild(txt);
+    }
+
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('class', 'edot');
+    dot.setAttribute('cx', x1); dot.setAttribute('cy', y1); dot.setAttribute('r', 3);
+    dot.style.cssText = 'fill:#b8b0a6; pointer-events:none;';
+
+    svgEl.appendChild(dot);
+  });
+}
+
+// ────────────────────────────────────────────────────────
+//  CONNECT MODE (right-click menu "Connect to...")
+//  No toolbar button - accessed via right-click only.
+// ────────────────────────────────────────────────────────
+
+function startConnMode(sourceId) {
+  S.conn.on  = true;
+  S.conn.src = sourceId;
+  document.getElementById(sourceId)?.classList.add('conn-src');
+  document.querySelectorAll('.node').forEach(el => el.style.cursor = 'crosshair');
+  showToast('Click the destination node to connect, or press Esc to cancel');
+}
+
+function handleConnClick(id) {
+  if (!S.conn.src) return;
+  if (S.conn.src !== id) {
+    const already = S.edges.some(e =>
+      (e.from === S.conn.src && e.to === id) ||
+      (e.from === id && e.to === S.conn.src));
+    if (!already) {
+      S.edges.push({ id: 'e' + (S.nid++), from: S.conn.src, to: id });
+      // Rebuild source node so toggle appears if it now has a child
+      buildNode(S.conn.src);
+      drawEdges();
+      autoSave();
+      showToast('Connected! Click the line to delete it.');
+    } else {
+      showToast('Already connected');
+    }
+  }
+  cancelConn();
+}
+
+function cancelConn() {
+  if (S.conn.src) document.getElementById(S.conn.src)?.classList.remove('conn-src');
+  S.conn = { on: false, src: null };
+  document.querySelectorAll('.node').forEach(el => el.style.cursor = '');
+  document.getElementById('btn-conn')?.classList.remove('active');
+}
+
+// Cancel connect mode on Escape
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (modalBg.classList.contains('open')) closeModal();
+    else if (S.conn.on) { cancelConn(); showToast('Connect mode cancelled'); }
+  }
+});
+
+// ────────────────────────────────────────────────────────
+//  ADD CHILD NODE (auto-connected to parent)
+// ────────────────────────────────────────────────────────
+
+function addChildNode(parentId) {
+  const p  = S.nodes.find(n => n.id === parentId);
+  const el = document.getElementById(parentId);
+  if (!p || !el) return;
+
+  const childId = addNode(p.x + el.offsetWidth + 80, p.y, '', p.ci || 0, '', false);
+  S.edges.push({ id: 'e' + (S.nid++), from: parentId, to: childId });
+
+  buildNode(parentId);
+  drawEdges();
+  autoSave();
+}
+
+// Add a Note node - visually distinct annotation attached to a parent node
+function addNoteNode(parentId) {
+  const p  = S.nodes.find(n => n.id === parentId);
+  const el = document.getElementById(parentId);
+  if (!p || !el) return;
+
+  // Place note below and slightly to the right of the parent
+  const noteId = addNode(p.x + 20, p.y + el.offsetHeight + 50, '', 0, '', true);
+  S.edges.push({ id: 'e' + (S.nid++), from: parentId, to: noteId });
+
+  buildNode(parentId);
+  drawEdges();
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  DELETE NODE (and all its edges)
+// ────────────────────────────────────────────────────────
+
+function deleteNode(id) {
+  const parentIds = S.edges.filter(e => e.to === id).map(e => e.from);
+
+  S.nodes = S.nodes.filter(n => n.id !== id);
+  S.edges = S.edges.filter(e => e.from !== id && e.to !== id);
+  document.getElementById(id)?.remove();
+
+  if (S.sel === id)      S.sel = null;
+  if (S.conn.src === id) cancelConn();
+
+  // Rebuild parent nodes - they may no longer need the collapse toggle
+  parentIds.forEach(pid => { if (S.nodes.find(n => n.id === pid)) buildNode(pid); });
+
+  drawEdges();
+  updateHint();
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  RECOLOR SELECTED NODE
+// ────────────────────────────────────────────────────────
+
+function recolor(ci) {
+  if (!S.sel) { showToast('Select a node first, then pick a color'); return; }
+  const n = S.nodes.find(n => n.id === S.sel);
+  if (!n) return;
+  n.ci = ci;
+  buildNode(n.id);
+  select(n.id);
+  drawEdges();
+  autoSave();
+}
+
+// ────────────────────────────────────────────────────────
+//  CONTEXT MENU (right-click on node)
+// ────────────────────────────────────────────────────────
+
+function showCtxMenu(e, id) {
+  S.ctxId = id;
+  select(id);
+  ctxMenu.style.cssText = `display:block; left:${e.clientX}px; top:${e.clientY}px;`;
+}
+function hideCtxMenu() { ctxMenu.style.display = 'none'; S.ctxId = null; }
+
+function cxEdit()  { const id = S.ctxId; hideCtxMenu(); beginEdit(id); }
+function cxChild() { const id = S.ctxId; hideCtxMenu(); addChildNode(id); }
+function cxNote()  { const id = S.ctxId; hideCtxMenu(); addNoteNode(id); }
+function cxLink()  { const id = S.ctxId; hideCtxMenu(); openModal(id); }
+function cxConn()  { const id = S.ctxId; hideCtxMenu(); startConnMode(id); }
+function cxDel()   { const id = S.ctxId; hideCtxMenu(); deleteNode(id); }
+
+document.addEventListener('click',       e => { if (!e.target.closest('#ctx')) hideCtxMenu(); });
+document.addEventListener('contextmenu', e => { if (!e.target.closest('.node')) hideCtxMenu(); });
+
+// ────────────────────────────────────────────────────────
+//  LINK MODAL (attach Google Drive URL to a node)
+// ────────────────────────────────────────────────────────
+
+function openModal(id) {
+  const n = S.nodes.find(n => n.id === id);
+  if (!n) return;
+  S.modalId = id;
+  document.getElementById('modal-url').value = n.link || '';
+  document.getElementById('btn-remove').style.display = n.link ? 'inline-flex' : 'none';
+  modalBg.classList.add('open');
+  setTimeout(() => document.getElementById('modal-url').focus(), 60);
+}
+
+function closeModal() { modalBg.classList.remove('open'); S.modalId = null; }
+
+function saveLink() {
+  const n = S.nodes.find(n => n.id === S.modalId);
+  if (!n) return;
+  const val = document.getElementById('modal-url').value.trim();
+  if (val && !val.startsWith('http')) { alert('Please paste a full URL starting with https://'); return; }
+  n.link = val;
+  buildNode(n.id);
+  select(n.id);
+  drawEdges();
+  autoSave();
+  closeModal();
+  showToast(val ? 'Drive link saved - click the colored icon on the node to open it' : 'Link removed');
+}
+
+function removeLink() {
+  const n = S.nodes.find(n => n.id === S.modalId);
+  if (!n) return;
+  n.link = '';
+  buildNode(n.id); select(n.id); drawEdges(); autoSave(); closeModal();
+  showToast('Link removed');
+}
+
+modalBg.addEventListener('click', e => { if (e.target === modalBg) closeModal(); });
+
+// ────────────────────────────────────────────────────────
+//  SAVE (download .json file)
+// ────────────────────────────────────────────────────────
+
+function getMapData() {
+  return {
+    title: document.getElementById('map-title').value,
+    nodes: S.nodes,
+    edges: S.edges,
+    nid:   S.nid,
+    edgeThickness: S.edgeThickness,
+    edgeColor: S.edgeColor,
+  };
+}
+
+function autoSave() {
+  try { localStorage.setItem('mmdata', JSON.stringify(getMapData())); } catch(e) {}
+}
+
+function saveMap() {
+  const data = getMapData();
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type:'application/json' }));
+  a.download = (data.title || 'mindmap').replace(/\s+/g, '_') + '.json';
+  a.click();
+  showToast('Saved! To load it next time: drag the .json file onto this page, or use the Load option in right-click menu.');
+}
+
+// Load from file - accessible via right-click on canvas OR drag-and-drop
+function loadMapFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      clearSilent();
+      restore(JSON.parse(e.target.result));
+      showToast('Map loaded: ' + file.name);
+    } catch(e) { alert('Could not load this file. Make sure it is a .json mind map file.'); }
+  };
+  reader.readAsText(file);
+}
+
+function restore(data) {
+  if (data.title) document.getElementById('map-title').value = data.title;
+  S.nodes = (data.nodes || []).map(n => ({
+    ...n,
+    link: n.link || '', collapsed: n.collapsed || false,
+    w: n.w || 0, h: n.h || 0, isNote: n.isNote || false,
+    fontSize: n.fontSize || 13, fontFamily: n.fontFamily || 'Nunito',
+    textColor: n.textColor || '', bold: n.bold || false, italic: n.italic || false,
+    textAlign: n.textAlign || 'left',
+    shape: n.shape || 'rounded',
+  }));
+  S.edges = data.edges || [];
+  S.nid   = data.nid   || 1;
+  if (data.edgeThickness) {
+    S.edgeThickness = data.edgeThickness;
+    document.getElementById('fmt-thickness').value = S.edgeThickness;
+    document.getElementById('fmt-thick-val').textContent = S.edgeThickness + 'px';
+  }
+  if (data.edgeColor) {
+    S.edgeColor = data.edgeColor;
+    document.getElementById('fmt-edge-color').value = S.edgeColor;
+  }
+
+  // Rebuild all nodes
+  S.nodes.forEach(n => buildNode(n.id));
+
+  // Re-hide nodes that were collapsed when saved
+  S.nodes.filter(n => n.collapsed).forEach(n => {
+    getDescendants(n.id).forEach(descId => {
+      const el = document.getElementById(descId);
+      if (el) el.style.display = 'none';
+    });
+  });
+
+  drawEdges();
+  updateHint();
+}
+
+// Toolbar Connect button - picks selected node as source, or prompts to select one
+function cxConnToggle() {
+  if (S.conn.on) { cancelConn(); return; }
+  if (S.sel) {
+    startConnMode(S.sel);
+    document.getElementById('btn-conn').classList.add('active');
+  } else {
+    showToast('Select a node first, then click Connect');
+  }
+}
+
+function triggerLoad() {
+  document.getElementById('file-in').click();
+}
+
+function loadMapFromFileInput(ev) {
+  loadMapFromFile(ev.target.files[0]);
+  ev.target.value = '';
+}
+
+// ── Drag-and-drop .json file onto the canvas to load it ──
+document.getElementById('wrap').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('wrap').addEventListener('drop', e => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.json')) loadMapFromFile(file);
+});
+
+// ── Right-click on empty canvas = option to load file ──
+document.getElementById('wrap').addEventListener('contextmenu', e => {
+  if (e.target === cvs || e.target === svgEl) {
+    e.preventDefault();
+    // Show a minimal "load" prompt
+    if (confirm('Load a saved map?\n\nClick OK to pick a .json file, or drag a .json file onto the canvas anytime.')) {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.json';
+      input.onchange = ev => loadMapFromFile(ev.target.files[0]);
+      input.click();
+    }
+  }
+});
+
+// ────────────────────────────────────────────────────────
+//  CLEAR
+// ────────────────────────────────────────────────────────
+
+function clearSilent() {
+  S.nodes.forEach(n => document.getElementById(n.id)?.remove());
+  S.nodes = []; S.edges = []; S.nid = 1; S.sel = null;
+  S.selSet.clear();
+  S.conn  = { on: false, src: null };
+  svgEl.querySelectorAll('.edge, .edot, .edge-label-text').forEach(el => el.remove());
+  updateHint();
+  localStorage.removeItem('mmdata');
+}
+
+// ────────────────────────────────────────────────────────
+//  UTILITY
+// ────────────────────────────────────────────────────────
+
+function updateHint() {
+  emptyH.style.display = S.nodes.length === 0 ? 'block' : 'none';
+}
+
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ────────────────────────────────────────────────────────
+//  GITHUB API - Save and Load maps to/from your repo
+//  How it works:
+//  1. Your token, username, repo are stored in localStorage (browser only)
+//  2. Save: converts map to JSON, calls GitHub API to write the file
+//  3. Load: calls GitHub API to list files, shows them, reads selected file
+//  4. The token goes directly from your browser to GitHub - no middleman
+// ────────────────────────────────────────────────────────
+
+// Current modal mode: 'settings' | 'save' | 'load'
+let ghMode = 'settings';
+
+// Get stored credentials from browser localStorage
+function ghCreds() {
+  return {
+    user:  localStorage.getItem('gh_user')  || '',
+    repo:  localStorage.getItem('gh_repo')  || '',
+    token: localStorage.getItem('gh_token') || '',
+  };
+}
+
+// Check if credentials are already set up
+function ghReady() {
+  const c = ghCreds();
+  return c.user && c.repo && c.token;
+}
+
+// Open settings modal (gear button)
+function ghSettings() {
+  ghMode = 'settings';
+  const c = ghCreds();
+  document.getElementById('gh-username').value = c.user;
+  document.getElementById('gh-repo').value     = c.repo;
+  document.getElementById('gh-token').value    = c.token;
+  document.getElementById('gh-settings-form').style.display = '';
+  document.getElementById('gh-save-form').style.display     = 'none';
+  document.getElementById('gh-load-form').style.display     = 'none';
+  document.getElementById('gh-modal-sub').textContent = 'Enter your details once. Stored only in your browser.';
+  document.getElementById('gh-confirm-btn').textContent = 'Save Settings';
+  document.getElementById('gh-status').textContent = '';
+  document.getElementById('gh-modal-bg').classList.add('open');
+}
+
+// Open Save modal - if no credentials yet, show settings first
+function ghSave() {
+  if (!ghReady()) {
+    ghSettings();
+    ghSetStatus('Set up your GitHub credentials first, then click Save Settings. Then click "Save to GitHub" again.', 'orange');
+    return;
+  }
+  ghMode = 'save';
+  // Default filename = current map title, sanitized
+  const title = (document.getElementById('map-title').value || 'my-map')
+    .replace(/[^a-zA-Z0-9_\-\s]/g, '').replace(/\s+/g, '_');
+  document.getElementById('gh-filename').value = title;
+  document.getElementById('gh-filename-preview').textContent = title + '.json';
+  document.getElementById('gh-settings-form').style.display = 'none';
+  document.getElementById('gh-save-form').style.display     = '';
+  document.getElementById('gh-load-form').style.display     = 'none';
+  document.getElementById('gh-modal-sub').textContent = 'Save current map to your GitHub repository.';
+  document.getElementById('gh-confirm-btn').textContent = 'Save to GitHub';
+  document.getElementById('gh-status').textContent = '';
+  document.getElementById('gh-modal-bg').classList.add('open');
+
+  // Live preview of filename as user types
+  document.getElementById('gh-filename').oninput = function() {
+    document.getElementById('gh-filename-preview').textContent = (this.value || 'map') + '.json';
+  };
+}
+
+// Open Load modal - fetches file list from GitHub
+function ghLoad() {
+  if (!ghReady()) {
+    ghSettings();
+    ghSetStatus('Set up your GitHub credentials first, then click Save Settings. Then click "Load from GitHub" again.', 'orange');
+    return;
+  }
+  ghMode = 'load';
+  document.getElementById('gh-settings-form').style.display = 'none';
+  document.getElementById('gh-save-form').style.display     = 'none';
+  document.getElementById('gh-load-form').style.display     = '';
+  document.getElementById('gh-modal-sub').textContent = 'Load a saved map from your GitHub repository.';
+  document.getElementById('gh-confirm-btn').style.display   = 'none';
+  document.getElementById('gh-status').textContent = '';
+  document.getElementById('gh-modal-bg').classList.add('open');
+  ghFetchFileList();
+}
+
+// Fetch list of .json files from the repo and display them
+async function ghFetchFileList() {
+  const c    = ghCreds();
+  const list = document.getElementById('gh-file-list');
+  list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Fetching maps from GitHub...</div>';
+
+  try {
+    // GitHub API: list files at root of repo
+    const res = await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/`, {
+      headers: { Authorization: `token ${c.token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) throw new Error('GitHub returned ' + res.status + '. Check your token and repo name.');
+
+    const files = await res.json();
+    // Filter to only .json files (your map saves)
+    const maps  = files.filter(f => f.name.endsWith('.json'));
+
+    if (maps.length === 0) {
+      list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">No maps saved yet. Use "Save to GitHub" first.</div>';
+      return;
+    }
+
+    // Build clickable file list
+    list.innerHTML = '';
+    maps.forEach(file => {
+      const item = document.createElement('div');
+      item.className = 'gh-file-item';
+      const name = file.name.replace('.json', '');
+      item.innerHTML = `<span>&#128196; ${name}</span><span class="gh-date">${file.size} bytes</span>`;
+      item.onclick = () => ghLoadFile(file.name, file.sha);
+      list.appendChild(item);
+    });
+  } catch(err) {
+    list.innerHTML = '';
+    ghSetStatus('Error: ' + err.message, 'red');
+  }
+}
+
+// Load a specific file from GitHub by filename
+async function ghLoadFile(filename, sha) {
+  const c = ghCreds();
+  ghSetStatus('Loading ' + filename + '...', 'muted');
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/${filename}`, {
+      headers: { Authorization: `token ${c.token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) throw new Error('Could not fetch file. Status: ' + res.status);
+
+    const data = await res.json();
+    // GitHub returns file content as base64 encoded - decode it
+    const json = JSON.parse(atob(data.content.replace(/\n/g, '')));
+
+    ghCloseModal();
+    clearSilent();
+    restore(json);
+    showToast('Loaded: ' + filename.replace('.json','') + ' from GitHub');
+  } catch(err) {
+    ghSetStatus('Error loading file: ' + err.message, 'red');
+  }
+}
+
+// Confirm button - either saves settings or saves map depending on mode
+async function ghConfirm() {
+  if (ghMode === 'settings') {
+    // Save credentials to localStorage
+    const user  = document.getElementById('gh-username').value.trim();
+    const repo  = document.getElementById('gh-repo').value.trim();
+    const token = document.getElementById('gh-token').value.trim();
+    if (!user || !repo || !token) { ghSetStatus('Please fill in all three fields.', 'red'); return; }
+    localStorage.setItem('gh_user',  user);
+    localStorage.setItem('gh_repo',  repo);
+    localStorage.setItem('gh_token', token);
+    ghCloseModal();
+    showToast('GitHub settings saved. You can now Save/Load maps.');
+
+  } else if (ghMode === 'save') {
+    const name = (document.getElementById('gh-filename').value.trim() || 'map')
+      .replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const filename = name + '.json';
+    await ghSaveFile(filename);
+  }
+}
+
+// Write the current map as a JSON file to GitHub
+async function ghSaveFile(filename) {
+  const c       = ghCreds();
+  const content = JSON.stringify(getMapData(), null, 2);
+  // GitHub API requires base64 encoded content
+  const b64     = btoa(unescape(encodeURIComponent(content)));
+
+  ghSetStatus('Saving to GitHub...', 'muted');
+  document.getElementById('gh-confirm-btn').disabled = true;
+
+  try {
+    // First check if file already exists (need its SHA to update it)
+    let sha = null;
+    const check = await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/${filename}`, {
+      headers: { Authorization: `token ${c.token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (check.ok) {
+      const existing = await check.json();
+      sha = existing.sha; // needed to overwrite an existing file
+    }
+
+    // Create or update the file
+    const body = {
+      message: `Update ${filename} via Mind Map Editor`,
+      content: b64,
+    };
+    if (sha) body.sha = sha; // include SHA only when updating existing file
+
+    const res = await fetch(`https://api.github.com/repos/${c.user}/${c.repo}/contents/${filename}`, {
+      method:  'PUT',
+      headers: {
+        Authorization: `token ${c.token}`,
+        Accept:        'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Save failed. Status: ' + res.status);
+    }
+
+    ghCloseModal();
+    showToast('Saved to GitHub: ' + filename);
+  } catch(err) {
+    ghSetStatus('Error: ' + err.message, 'red');
+    document.getElementById('gh-confirm-btn').disabled = false;
+  }
+}
+
+function ghSetStatus(msg, type) {
+  const el = document.getElementById('gh-status');
+  el.textContent = msg;
+  el.style.color = type === 'red' ? 'var(--red)' : type === 'orange' ? '#c07a10' : 'var(--muted)';
+}
+
+function ghCloseModal() {
+  document.getElementById('gh-modal-bg').classList.remove('open');
+  document.getElementById('gh-confirm-btn').style.display = '';
+  document.getElementById('gh-confirm-btn').disabled = false;
+}
+
+// Close GitHub modal on background click
+document.getElementById('gh-modal-bg').addEventListener('click', e => {
+  if (e.target === document.getElementById('gh-modal-bg')) ghCloseModal();
+});
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
