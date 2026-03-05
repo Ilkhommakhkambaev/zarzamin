@@ -1,0 +1,28 @@
+{
+  "title": "My Mind Map",
+  "nodes": [
+    {
+      "id": "n1",
+      "x": 333,
+      "y": 208,
+      "w": 0,
+      "h": 0,
+      "text": "FRLD",
+      "ci": 2,
+      "link": "https://drive.google.com/drive/folders/1TkW74SECbEHx1V6j46JltugAOrAAlDxC?usp=drive_link",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "center",
+      "shape": "rounded"
+    }
+  ],
+  "edges": [],
+  "nid": 2,
+  "edgeThickness": 2,
+  "edgeColor": "#b8b0a6"
+}
