@@ -3,11 +3,11 @@
   "nodes": [
     {
       "id": "n1",
-      "x": 436.5,
-      "y": 139,
+      "x": 371.5,
+      "y": 149,
       "w": 0,
       "h": 0,
-      "text": "New Node",
+      "text": "03_NSIFT_ROSHTKALA",
       "ci": 0,
       "link": "",
       "collapsed": false,
