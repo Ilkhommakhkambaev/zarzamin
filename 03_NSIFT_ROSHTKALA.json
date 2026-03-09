@@ -378,6 +378,27 @@
       "shape": "rounded",
       "borderColor": "",
       "borderWidth": 0
+    },
+    {
+      "id": "n36",
+      "x": 1237.6085246868631,
+      "y": -47.25226197193119,
+      "w": 0,
+      "h": 0,
+      "text": "03_Communication_with_WB_and_other_partners",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
     }
   ],
   "edges": [
@@ -467,7 +488,7 @@
       "to": "n25"
     }
   ],
-  "nid": 36,
+  "nid": 37,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
