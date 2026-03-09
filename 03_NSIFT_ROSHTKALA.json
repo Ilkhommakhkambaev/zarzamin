@@ -86,8 +86,19 @@
       "borderWidth": 0
     }
   ],
-  "edges": [],
-  "nid": 5,
+  "edges": [
+    {
+      "id": "e5",
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "id": "e6",
+      "from": "n2",
+      "to": "n3"
+    }
+  ],
+  "nid": 7,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
