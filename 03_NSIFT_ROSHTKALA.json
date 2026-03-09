@@ -195,9 +195,14 @@
       "id": "e13",
       "from": "n2",
       "to": "n9"
+    },
+    {
+      "id": "e14",
+      "from": "n2",
+      "to": "n10"
     }
   ],
-  "nid": 14,
+  "nid": 15,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
