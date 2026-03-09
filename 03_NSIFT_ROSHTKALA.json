@@ -168,6 +168,69 @@
       "shape": "rounded",
       "borderColor": "",
       "borderWidth": 0
+    },
+    {
+      "id": "n16",
+      "x": 816.0558541411855,
+      "y": -61.19370614810704,
+      "w": 0,
+      "h": 0,
+      "text": "01_Work_Plan",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    },
+    {
+      "id": "n17",
+      "x": 846.0558541411855,
+      "y": -31.19370614810704,
+      "w": 0,
+      "h": 0,
+      "text": "02_Budget",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    },
+    {
+      "id": "n18",
+      "x": 876.0558541411855,
+      "y": -1.1937061481070401,
+      "w": 0,
+      "h": 0,
+      "text": "03_HR_Personnel",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
     }
   ],
   "edges": [
@@ -207,7 +270,7 @@
       "to": "n11"
     }
   ],
-  "nid": 16,
+  "nid": 19,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
