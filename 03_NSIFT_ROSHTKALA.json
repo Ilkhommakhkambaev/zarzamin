@@ -430,9 +430,19 @@
       "id": "e21",
       "from": "n3",
       "to": "n18"
+    },
+    {
+      "id": "e29",
+      "from": "n4",
+      "to": "n26"
+    },
+    {
+      "id": "e30",
+      "from": "n26",
+      "to": "n27"
     }
   ],
-  "nid": 29,
+  "nid": 31,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
