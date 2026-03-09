@@ -378,27 +378,6 @@
       "shape": "rounded",
       "borderColor": "",
       "borderWidth": 0
-    },
-    {
-      "id": "n36",
-      "x": 1237.6085246868631,
-      "y": -50.343498981646434,
-      "w": 0,
-      "h": 0,
-      "text": "03_Communication_with_WB_and_other_partners",
-      "ci": 0,
-      "link": "https://drive.google.com/drive/folders/1U3DuLYxSkU9G28oNbVx72KJSa69CKxOO?usp=drive_link",
-      "collapsed": false,
-      "isNote": false,
-      "fontSize": 13,
-      "fontFamily": "Nunito",
-      "textColor": "",
-      "bold": false,
-      "italic": false,
-      "textAlign": "left",
-      "shape": "rounded",
-      "borderColor": "",
-      "borderWidth": 0
     }
   ],
   "edges": [
@@ -486,11 +465,6 @@
       "id": "e35",
       "from": "n24",
       "to": "n25"
-    },
-    {
-      "id": "e37",
-      "from": "n26",
-      "to": "n36"
     }
   ],
   "nid": 38,
