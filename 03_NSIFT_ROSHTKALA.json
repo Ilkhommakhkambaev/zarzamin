@@ -381,13 +381,34 @@
     },
     {
       "id": "n38",
-      "x": 1218.157749325928,
-      "y": -31.703032008628185,
+      "x": 1263.6007790101269,
+      "y": -35.11125923494309,
       "w": 0,
       "h": 0,
       "text": "MOHIRA",
       "ci": 0,
       "link": "https://drive.google.com/drive/folders/1yDWqFtG5-8E1ertf2IwUewNBz4SsiF7Q?usp=drive_link",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    },
+    {
+      "id": "n40",
+      "x": 684.7928367188299,
+      "y": 452.27011665644955,
+      "w": 0,
+      "h": 0,
+      "text": "New Node",
+      "ci": 0,
+      "link": "",
       "collapsed": false,
       "isNote": false,
       "fontSize": 13,
@@ -491,9 +512,14 @@
       "id": "e39",
       "from": "n26",
       "to": "n38"
+    },
+    {
+      "id": "e41",
+      "from": "n10",
+      "to": "n40"
     }
   ],
-  "nid": 40,
+  "nid": 42,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
