@@ -531,6 +531,7 @@ body {
   <button class="btn" onclick="showHomeScreen()" title="My Maps" style="font-size:14px;">&#128193; My Maps</button>
   <div class="sep"></div>
   <button class="btn primary" onclick="addNode()">+ Add Node</button>
+  <button class="btn" onclick="autoLayout()" title="Auto-arrange nodes as a tree">&#9776; Auto Layout</button>
   <div class="sep"></div>
   <span style="font-size:11px;color:var(--muted);">Color:</span>
   <div class="color-strip" id="swatches"></div>
@@ -861,7 +862,9 @@ function hideHomeScreen() {
 
 function renderHomeList() {
   const list = document.getElementById('home-list');
-  if (!ghReady()) {
+  const c = ghCreds();
+  // Allow loading if we have user+repo (token optional for public repos)
+  if (!c.user || !c.repo) {
     list.innerHTML = '<div id="home-empty">GitHub not configured.<br>Click the <b>gear icon &#9881;</b> in the toolbar to set up your GitHub credentials.</div>';
     return;
   }
@@ -936,17 +939,44 @@ async function homeNewMap() {
 async function homeLoadGithubList() {
   const list = document.getElementById('home-list');
   try {
-    const { user, repo, token } = ghCreds();
-    // Show which repo we're connected to
-    const repoHeader = `<div style="padding:10px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-      <span>Repo: <b style="color:var(--text);">${escHtml(user)}/${escHtml(repo)}</b></span>
-      <span style="color:var(--accent);cursor:pointer;font-weight:700;" onclick="ghSettings()">Change</span>
-    </div>`;
+    const { user, repo, token, autoDetected } = ghCreds();
+
+    let repoHeader = '';
+    if (autoDetected) {
+      // Locked to this repo (GitHub Pages or URL param) — no switching
+      repoHeader = `<div style="padding:10px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <span>Repo: <b style="color:var(--text);">${escHtml(user)}/${escHtml(repo)}</b></span>
+      </div>`;
+    } else {
+      // Local mode — show repo dropdown for quick switching
+      try {
+        const reposResp = await fetch(`https://api.github.com/users/${user}/repos?per_page=100&sort=updated`, {
+          headers: token ? { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } : { 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (reposResp.ok) {
+          const allRepos = await reposResp.json();
+          const options = allRepos.map(r =>
+            `<option value="${escHtml(r.name)}" ${r.name === repo ? 'selected' : ''}>${escHtml(r.name)}</option>`
+          ).join('');
+          repoHeader = `<div style="padding:10px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+            <span style="white-space:nowrap;">${escHtml(user)} /</span>
+            <select onchange="switchRepo(this.value)" style="flex:1;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-weight:700;color:var(--text);background:#fff;cursor:pointer;">${options}</select>
+          </div>`;
+        }
+      } catch(e) { /* fall back to simple header */ }
+
+      if (!repoHeader) {
+        repoHeader = `<div style="padding:10px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <span>Repo: <b style="color:var(--text);">${escHtml(user)}/${escHtml(repo)}</b></span>
+          <span style="color:var(--accent);cursor:pointer;font-weight:700;" onclick="ghSettings()">Change</span>
+        </div>`;
+      }
+    }
 
     list.innerHTML = repoHeader + '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Loading...</div>';
 
     const resp = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/`, {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+      headers: token ? { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' } : { 'Accept': 'application/vnd.github.v3+json' }
     });
     if (!resp.ok) {
       list.innerHTML = repoHeader + '<div id="home-empty">Could not load files. Check credentials or repo name.<br><br><span style="color:var(--accent);cursor:pointer;font-weight:700;" onclick="ghSettings()">Open GitHub Settings</span></div>';
@@ -975,6 +1005,13 @@ async function homeLoadGithubList() {
   } catch(e) {
     list.innerHTML = '<div id="home-empty">Error connecting to GitHub.<br><br><span style="color:var(--accent);cursor:pointer;font-weight:700;" onclick="ghSettings()">Open GitHub Settings</span></div>';
   }
+}
+
+function switchRepo(repoName) {
+  localStorage.setItem('gh_repo', repoName);
+  S.currentFile = null;
+  localStorage.removeItem('mmCurrentFile');
+  renderHomeList();
 }
 
 async function homeOpenGithub(filename, sha) {
@@ -1063,6 +1100,132 @@ async function homeRenameGithub(oldFilename) {
     showToast('Error: ' + e.message);
     renderHomeList();
   }
+}
+
+// ────────────────────────────────────────────────────────
+//  AUTO TREE LAYOUT
+// ────────────────────────────────────────────────────────
+
+function autoLayout() {
+  if (S.nodes.length === 0) return;
+  pushUndo();
+
+  // Build adjacency: parent → children (using edge direction from → to)
+  const childrenOf = {};
+  const hasParent = new Set();
+  S.nodes.forEach(n => { childrenOf[n.id] = []; });
+  S.edges.forEach(e => {
+    if (childrenOf[e.from]) {
+      childrenOf[e.from].push(e.to);
+      hasParent.add(e.to);
+    }
+  });
+
+  // Find root nodes (no incoming edges)
+  const roots = S.nodes.filter(n => !hasParent.has(n.id));
+  // Disconnected nodes (no edges at all)
+  const connected = new Set();
+  S.edges.forEach(e => { connected.add(e.from); connected.add(e.to); });
+  const disconnected = S.nodes.filter(n => !connected.has(n.id));
+  // Actual tree roots (connected and no parent)
+  const treeRoots = roots.filter(n => connected.has(n.id));
+
+  // If no tree structure, nothing to layout
+  if (treeRoots.length === 0 && disconnected.length === S.nodes.length) {
+    showToast('No connections found. Connect nodes first, then auto-layout.');
+    return;
+  }
+
+  // If no clear root, use the first root or first node
+  if (treeRoots.length === 0) treeRoots.push(roots[0] || S.nodes[0]);
+
+  const H_GAP = 120;  // horizontal gap between levels
+  const V_GAP = 30;   // vertical gap between sibling nodes
+
+  // Measure actual node dimensions from DOM
+  function getNodeSize(id) {
+    const el = document.getElementById(id);
+    if (el) return { w: el.offsetWidth, h: el.offsetHeight };
+    return { w: 140, h: 50 }; // fallback
+  }
+
+  // Phase 1: compute subtree height for each node (bottom-up)
+  const subtreeH = {};
+  function calcSubtreeHeight(id, visited) {
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const children = (childrenOf[id] || []).filter(c => !visited.has(c));
+    const size = getNodeSize(id);
+    if (children.length === 0) {
+      subtreeH[id] = size.h;
+      return size.h;
+    }
+    let totalChildH = 0;
+    children.forEach((cid, i) => {
+      totalChildH += calcSubtreeHeight(cid, visited);
+      if (i < children.length - 1) totalChildH += V_GAP;
+    });
+    subtreeH[id] = Math.max(size.h, totalChildH);
+    return subtreeH[id];
+  }
+
+  // Phase 2: assign x,y positions (top-down)
+  function positionNode(id, x, yStart, visited) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const n = S.nodes.find(n => n.id === id);
+    if (!n) return;
+    const size = getNodeSize(id);
+    const myH = subtreeH[id] || size.h;
+
+    // Center this node vertically within its allocated subtree space
+    n.x = x;
+    n.y = yStart + (myH - size.h) / 2;
+
+    const children = (childrenOf[id] || []).filter(c => !visited.has(c));
+    if (children.length === 0) return;
+
+    // Position children to the right
+    const childX = x + size.w + H_GAP;
+    let childY = yStart;
+    children.forEach(cid => {
+      const cH = subtreeH[cid] || getNodeSize(cid).h;
+      positionNode(cid, childX, childY, visited);
+      childY += cH + V_GAP;
+    });
+  }
+
+  // Layout each tree root, stacking them vertically
+  const visited1 = new Set();
+  treeRoots.forEach(r => calcSubtreeHeight(r.id, visited1));
+
+  const startX = 100;
+  let startY = 100;
+  const visited2 = new Set();
+
+  treeRoots.forEach(root => {
+    positionNode(root.id, startX, startY, visited2);
+    startY += (subtreeH[root.id] || 50) + V_GAP * 2;
+  });
+
+  // Place disconnected nodes below all trees
+  disconnected.forEach((n, i) => {
+    n.x = startX + (i % 5) * 200;
+    n.y = startY + Math.floor(i / 5) * 80;
+  });
+
+  // Rebuild all nodes and redraw edges
+  S.nodes.forEach(n => buildNode(n.id));
+  drawEdges();
+
+  // Pan view to show the root
+  S.tx = 80;
+  S.ty = 80;
+  S.zoom = 1;
+  applyXform();
+
+  autoSave();
+  showToast('Auto layout applied');
 }
 
 // ────────────────────────────────────────────────────────
@@ -2594,12 +2757,30 @@ function showToast(msg) {
 // Current modal mode: 'settings' | 'save' | 'load'
 let ghMode = 'settings';
 
-// Get stored credentials from browser localStorage
+// Auto-detect user/repo from GitHub Pages URL: https://{user}.github.io/{repo}/
+function ghAutoDetect() {
+  const host = window.location.hostname;
+  const path = window.location.pathname;
+  if (host.endsWith('.github.io')) {
+    const user = host.replace('.github.io', '');
+    const repo = path.split('/').filter(Boolean)[0] || '';
+    if (user && repo) return { user, repo, auto: true };
+  }
+  // Fallback: check URL params
+  const p = new URLSearchParams(window.location.search);
+  const pu = p.get('user') || '';
+  const pr = p.get('repo') || '';
+  if (pu && pr) return { user: pu, repo: pr, auto: true };
+  return { user: '', repo: '', auto: false };
+}
+
 function ghCreds() {
+  const det = ghAutoDetect();
   return {
-    user:  localStorage.getItem('gh_user')  || '',
-    repo:  localStorage.getItem('gh_repo')  || '',
+    user:  det.user  || localStorage.getItem('gh_user')  || '',
+    repo:  det.repo  || localStorage.getItem('gh_repo')  || '',
     token: localStorage.getItem('gh_token') || '',
+    autoDetected: det.auto,
   };
 }
 
