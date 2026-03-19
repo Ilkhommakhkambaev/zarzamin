@@ -1,9 +1,30 @@
 {
   "title": "01_WSN",
-  "tx": 0,
-  "ty": 0,
-  "zoom": 1,
-  "nodes": [],
+  "nodes": [
+    {
+      "id": "n1",
+      "x": 889,
+      "y": 284.5,
+      "w": 0,
+      "h": 0,
+      "text": "New Node",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    }
+  ],
   "edges": [],
-  "nid": 1
+  "nid": 2,
+  "edgeThickness": 2,
+  "edgeColor": "#b8b0a6"
 }
