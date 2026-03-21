@@ -49,6 +49,48 @@
       "y": 247.5,
       "w": 0,
       "h": 0,
+      "text": "Deliverable_2",
+      "ci": 0,
+      "link": "https://drive.google.com/drive/folders/1S22SOi8SR_2Hpe4R3s1m-WHyeDz7tzdn",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    },
+    {
+      "id": "n6",
+      "x": 1532,
+      "y": 247.5,
+      "w": 0,
+      "h": 0,
+      "text": "Deliverable_3",
+      "ci": 0,
+      "link": "",
+      "collapsed": false,
+      "isNote": false,
+      "fontSize": 13,
+      "fontFamily": "Nunito",
+      "textColor": "",
+      "bold": false,
+      "italic": false,
+      "textAlign": "left",
+      "shape": "rounded",
+      "borderColor": "",
+      "borderWidth": 0
+    },
+    {
+      "id": "n8",
+      "x": 1729,
+      "y": 247.5,
+      "w": 0,
+      "h": 0,
       "text": "New Node",
       "ci": 0,
       "link": "",
@@ -65,8 +107,8 @@
       "borderWidth": 0
     },
     {
-      "id": "n6",
-      "x": 1532,
+      "id": "n10",
+      "x": 2019,
       "y": 247.5,
       "w": 0,
       "h": 0,
@@ -101,9 +143,19 @@
       "id": "e7",
       "from": "n4",
       "to": "n6"
+    },
+    {
+      "id": "e9",
+      "from": "n6",
+      "to": "n8"
+    },
+    {
+      "id": "e11",
+      "from": "n8",
+      "to": "n10"
     }
   ],
-  "nid": 8,
+  "nid": 12,
   "edgeThickness": 2,
   "edgeColor": "#b8b0a6"
 }
